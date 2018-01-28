@@ -1,5 +1,6 @@
 package com.wordpress.lonelytripblog.calculatortdd;
 
+import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
@@ -41,7 +42,38 @@ public class Calculator {
 
     public String calculate(String expression) {
         String result = parseStringByShuntingYardAlgorithm(expression);
-        return result;
+        Stack<Double> numbersStack = new Stack<>();
+        String[] resultArray = result.split(" ");
+        for (int i = 0; i < resultArray.length; i++) {
+            char firstChar = resultArray[i].charAt(0);
+            if (isOperator(firstChar)) {
+                Double tmp;
+                switch (firstChar) {
+                    case '+':
+                        tmp = numbersStack.pop();
+                        numbersStack.push(numbersStack.pop() + tmp);
+                        break;
+                    case '-':
+                        tmp = numbersStack.pop();
+                        numbersStack.push(numbersStack.pop() - tmp);
+                        break;
+                    case '*':
+                        tmp = numbersStack.pop();
+                        numbersStack.push(numbersStack.pop() * tmp);
+                        break;
+                    case '/':
+                        tmp = numbersStack.pop();
+                        numbersStack.push(numbersStack.pop() / tmp);
+                        break;
+                }
+            } else {
+                numbersStack.push(Double.parseDouble(resultArray[i]));
+            }
+        }
+        if (numbersStack.isEmpty()) {
+            return "Mistake";
+        }
+        return DecimalFormat.getInstance().format(numbersStack.pop());
     }
 
     public String parseStringByShuntingYardAlgorithm(String expression) {
@@ -63,6 +95,8 @@ public class Calculator {
             }
 
             if (isOperator(c)) {
+                // TODO Dear future me! Here I'm making an assumption that all operands are left associated.
+                // Refactor to handle right associated operands, such as exponents, as needed
                 while (!operandsStack.empty()
                         && operandsStack.peek().precedence >= CHARACTER_OPERANDS_MAP.get(c).precedence
                         && operandsStack.peek() != Operands.LEFT_BRACKET) {
