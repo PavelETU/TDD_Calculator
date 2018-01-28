@@ -1,10 +1,8 @@
 package com.wordpress.lonelytripblog.calculatortdd;
 
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.List;
-
-import dalvik.annotation.TestTarget;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Stack;
 
 /**
  * Created by Павел on 13.01.2018.
@@ -12,56 +10,101 @@ import dalvik.annotation.TestTarget;
 
 public class Calculator {
 
+    private static final Map<Character, Operands> CHARACTER_OPERANDS_MAP = new HashMap<>();
+
+    static {
+        CHARACTER_OPERANDS_MAP.put('+', Operands.PLUS_OPERAND);
+        CHARACTER_OPERANDS_MAP.put('-', Operands.MINUS_OPERAND);
+        CHARACTER_OPERANDS_MAP.put('*', Operands.MULTIPLY_OPERAND);
+        CHARACTER_OPERANDS_MAP.put('/', Operands.DIVISION_OPERAND);
+        CHARACTER_OPERANDS_MAP.put('(', Operands.LEFT_BRACKET);
+        CHARACTER_OPERANDS_MAP.put(')', Operands.RIGHT_BRACKET);
+    }
+
     private enum Operands {
-        PLUS_OPERAND, MINUS_OPERAND, MULTIPLY_OPERAND, DIVISION_OPERAND
+        PLUS_OPERAND(1, '+'), MINUS_OPERAND(1, '-'), MULTIPLY_OPERAND(2, '*'), DIVISION_OPERAND(2, '/'),
+        LEFT_BRACKET(0, '('), RIGHT_BRACKET(0, ')');
+
+        final int precedence;
+        final char symbol;
+
+        Operands(final int precedence, final char symbol) {
+            this.precedence = precedence;
+            this.symbol = symbol;
+        }
+
+        @Override
+        public String toString() {
+            return String.valueOf(symbol);
+        }
     }
 
     public String calculate(String expression) {
-        List<Double> numbers = new ArrayList<>();
-        List<Operands> operands = new ArrayList<>();
+        String result = parseStringByShuntingYardAlgorithm(expression);
+        return result;
+    }
+
+    public String parseStringByShuntingYardAlgorithm(String expression) {
+        StringBuilder resultString = new StringBuilder();
+        Stack<Operands> operandsStack = new Stack<>();
         int i = 0;
         int length = expression.length();
         while (i < length) {
             char c = expression.charAt(i);
             int startIndexOfNumber = i;
+            // if the token is a number, then push it to the output queue.
             while (Character.isDigit(c) || c == '.') {
                 i++;
                 if (i == length) break;
                 c = expression.charAt(i);
             }
             if (i != startIndexOfNumber) {
-                numbers.add(Double.parseDouble(expression.substring(startIndexOfNumber, i)));
+                resultString.append(expression.substring(startIndexOfNumber, i)).append(" ");
             }
-            if (c == '+') {
-                operands.add(Operands.PLUS_OPERAND);
-            } else if (c == '-') {
-                operands.add(Operands.MINUS_OPERAND);
-            } else if (c == '*') {
-                operands.add(Operands.MULTIPLY_OPERAND);
-            } else if (c == '/') {
-                operands.add(Operands.DIVISION_OPERAND);
+
+            if (isOperator(c)) {
+                while (!operandsStack.empty()
+                        && operandsStack.peek().precedence >= CHARACTER_OPERANDS_MAP.get(c).precedence
+                        && operandsStack.peek() != Operands.LEFT_BRACKET) {
+                    resultString.append(operandsStack.pop()).append(" ");
+                }
+                if (c == '+') {
+                    operandsStack.push(Operands.PLUS_OPERAND);
+                } else if (c == '-') {
+                    operandsStack.push(Operands.MINUS_OPERAND);
+                } else if (c == '*') {
+                    operandsStack.push(Operands.MULTIPLY_OPERAND);
+                } else if (c == '/') {
+                    operandsStack.push(Operands.DIVISION_OPERAND);
+                }
             }
+
+            if (c == '(') {
+                operandsStack.push(Operands.LEFT_BRACKET);
+            }
+
+            if (c == ')') {
+                if (operandsStack.empty()) throw new ArithmeticException("Not matching bracket!");
+                while (operandsStack.peek() != Operands.LEFT_BRACKET) {
+                    resultString.append(operandsStack.pop()).append(' ');
+                    if (operandsStack.empty())
+                        throw new ArithmeticException("Not matching bracket!");
+                }
+                // Just pop the LEFT_BRACKET
+                operandsStack.pop();
+            }
+
             i++;
         }
-        Double result = numbers.get(0);
-        for (i = 0; i < operands.size(); i++) {
-            Operands currentOperand = operands.get(i);
-            switch (currentOperand) {
-                case PLUS_OPERAND:
-                    result = CalculationBase.add(result, numbers.get(i + 1));
-                    break;
-                case MINUS_OPERAND:
-                    result = CalculationBase.subtract(result, numbers.get(i + 1));
-                    break;
-                case MULTIPLY_OPERAND:
-                    result = CalculationBase.multiply(result, numbers.get(i + 1));
-                    break;
-                case DIVISION_OPERAND:
-                    result = CalculationBase.divide(result, numbers.get(i + 1));
-                    break;
-            }
+        while (!operandsStack.empty()) {
+            resultString.append(operandsStack.pop()).append(' ');
         }
-        return DecimalFormat.getInstance().format(result);
+        return resultString.toString();
     }
+
+    private boolean isOperator(char c) {
+        return CHARACTER_OPERANDS_MAP.containsKey(c) && c != '(' && c != ')';
+    }
+
 
 }
